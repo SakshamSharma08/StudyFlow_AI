@@ -7,14 +7,22 @@ import { EmptyState, LoadingGrid, PageHeader, StatCard } from "@/components/comm
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useAssignments,
-  useCreate,
   useExams,
   useGoals,
   useNotifications,
   useStudySessions,
 } from "@/lib/data";
+
+async function createReminder(title: string, message: string) {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return;
+  await supabase
+    .from("notifications")
+    .insert({ user_id: data.user.id, title, message, type: "deadline" });
+}
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -37,7 +45,6 @@ function DashboardPage() {
   const exams = useExams();
   const goals = useGoals();
   const notifications = useNotifications();
-  const createNotification = useCreate("notifications", "Reminder");
   const seeded = useRef(false);
 
   const loading =
@@ -78,11 +85,10 @@ function DashboardPage() {
       if (days > 3) continue;
       const title = `${item.kind} due soon: ${item.title}`;
       if (existing.has(title)) continue;
-      createNotification.mutate({
+      void createReminder(
         title,
-        message: `${days <= 0 ? "Due today" : `${days} day(s) left`} — ${format(item.date, "d MMM yyyy")}`,
-        type: "deadline",
-      });
+        `${days <= 0 ? "Due today" : `${days} day(s) left`} — ${format(item.date, "d MMM yyyy")}`,
+      ).then(() => notifications.refetch());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, notifications.isLoading]);
