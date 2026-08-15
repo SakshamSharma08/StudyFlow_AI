@@ -26,6 +26,31 @@ export const Route = createFileRoute("/_authenticated/assistant")({
   component: AssistantPage,
 });
 
+function FormattedMessage({ text }: { text: string }) {
+  // Lightweight markdown: **bold** plus "-"/"*" bullet lines.
+  return (
+    <>
+      {text.split("\n").map((line, i) => {
+        const bullet = /^\s*[-*]\s+/.test(line);
+        const clean = bullet ? line.replace(/^\s*[-*]\s+/, "") : line;
+        const parts = clean.split(/\*\*(.+?)\*\*/g);
+        const rendered = parts.map((part, j) =>
+          j % 2 === 1 ? <strong key={j}>{part}</strong> : <span key={j}>{part}</span>,
+        );
+        if (bullet) {
+          return (
+            <span key={i} className="flex gap-2">
+              <span aria-hidden>•</span>
+              <span>{rendered}</span>
+            </span>
+          );
+        }
+        return <span key={i} className="block">{rendered}</span>;
+      })}
+    </>
+  );
+}
+
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -115,13 +140,13 @@ function AssistantPage() {
               ) : null}
               <div
                 className={cn(
-                  "max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                  "max-w-[80%] space-y-1 rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
                   message.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground",
                 )}
               >
-                {message.content}
+                <FormattedMessage text={message.content} />
               </div>
             </div>
           ))}
