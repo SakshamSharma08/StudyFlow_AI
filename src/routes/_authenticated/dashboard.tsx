@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { differenceInCalendarDays, format, isAfter, parseISO } from "date-fns";
 import { CalendarClock, CheckCircle2, ClipboardList, Timer } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { EmptyState, LoadingGrid, PageHeader, StatCard } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   useAssignments,
+  useCreate,
   useExams,
   useGoals,
+  useNotifications,
   useStudySessions,
 } from "@/lib/data";
 
@@ -33,6 +36,9 @@ function DashboardPage() {
   const sessions = useStudySessions();
   const exams = useExams();
   const goals = useGoals();
+  const notifications = useNotifications();
+  const createNotification = useCreate("notifications", "Reminder");
+  const seeded = useRef(false);
 
   const loading =
     assignments.isLoading || sessions.isLoading || exams.isLoading || goals.isLoading;
@@ -62,6 +68,24 @@ function DashboardPage() {
     .filter((x) => isAfter(x.date, new Date(Date.now() - 86_400_000)))
     .sort((a, b) => a.date.getTime() - b.date.getTime())
     .slice(0, 5);
+
+  useEffect(() => {
+    if (loading || seeded.current || notifications.isLoading) return;
+    seeded.current = true;
+    const existing = new Set((notifications.data ?? []).map((n) => n.title));
+    for (const item of upcoming) {
+      const days = differenceInCalendarDays(item.date, new Date());
+      if (days > 3) continue;
+      const title = `${item.kind} due soon: ${item.title}`;
+      if (existing.has(title)) continue;
+      createNotification.mutate({
+        title,
+        message: `${days <= 0 ? "Due today" : `${days} day(s) left`} — ${format(item.date, "d MMM yyyy")}`,
+        type: "deadline",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, notifications.isLoading]);
 
   if (loading) {
     return (
